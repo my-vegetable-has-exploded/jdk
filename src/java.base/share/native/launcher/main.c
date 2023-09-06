@@ -93,6 +93,7 @@ WinMain(HINSTANCE inst, HINSTANCE previnst, LPSTR cmdline, int cmdshow)
     __initenv = _environ;
 
 #else /* JAVAW */
+//Note@wy main entry point?
 JNIEXPORT int
 main(int argc, char **argv)
 {
