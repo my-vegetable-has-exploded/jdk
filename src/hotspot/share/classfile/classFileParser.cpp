@@ -2755,6 +2755,7 @@ Method* ClassFileParser::parse_method(const ClassFileStream* const cfs,
   }
 
   // Copy byte codes
+  //Note@wy copy code to method instance.
   m->set_code((u1*)code_start);
 
   // Copy line number table

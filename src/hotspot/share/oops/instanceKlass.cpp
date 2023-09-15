@@ -1138,6 +1138,7 @@ void InstanceKlass::initialize_impl(TRAPS) {
 
   // Step 9
   if (!HAS_PENDING_EXCEPTION) {
+	// you can print the class fields layout after initialization
     set_initialization_state_and_notify(fully_initialized, CHECK);
     {
       debug_only(vtable().verify(tty, true);)
@@ -1527,7 +1528,7 @@ Klass* InstanceKlass::find_interface_field(Symbol* name, Symbol* sig, fieldDescr
   return NULL;
 }
 
-
+//Note@wy class field search example
 Klass* InstanceKlass::find_field(Symbol* name, Symbol* sig, fieldDescriptor* fd) const {
   // search order according to newest JVM spec (5.4.3.2, p.167).
   // 1) search for field in current klass
