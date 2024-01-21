@@ -76,6 +76,7 @@
 #include "utilities/events.hpp"
 #ifdef COMPILER2
 #include "opto/runtime.hpp"
+#include "oopMapCache.hpp"
 #endif
 
 // Helper class to access current interpreter state
@@ -243,6 +244,170 @@ JRT_ENTRY(void, InterpreterRuntime::_new(JavaThread* current, ConstantPool* pool
   current->set_vm_result(obj);
 JRT_END
 
+JRT_ENTRY(void, InterpreterRuntime::return_root  (JavaThread* current, oopDesc* obj_root))
+
+    if(oopDesc::is_oop(obj_root)){
+        if(obj_root->klass_or_null() != NULL){
+            Method* method = current->last_frame().interpreter_frame_method();
+    		Symbol* methodname = method->name();
+    		Symbol* methodsignature = method->signature();
+    		Symbol* methodklass = method->klass_name();
+    		char* methodbuffer = (char*) malloc(sizeof(char) * methodname->utf8_length() + 1);
+    		char* signaturebuffer =  (char*) malloc(sizeof(char) * methodsignature->utf8_length() + 1);
+    		char* namebuffer = (char*) malloc(sizeof(char) * methodklass->utf8_length() + 1);
+        	Symbol* inter_1 = obj_root->klass()->name();
+        	char* buf_1 = (char*) malloc(sizeof(char) * inter_1->utf8_length() + 1);
+        	char* threadbuffer = (char*) malloc(sizeof(char) * 200);
+        	log_info(gc, heap)("Return H:" INTPTR_FORMAT ", C:%s, T:%s, M:%s.%s %s", obj_root->identity_hash(),
+                               obj_root->klass()->name()->as_C_string(buf_1, inter_1->utf8_length() + 1),
+								"test_thread",
+							    // current->get_thread_name_string(threadbuffer, 200),
+                           methodklass->as_C_string(namebuffer,methodklass->utf8_length() + 1), methodname->as_C_string(methodbuffer,methodname->utf8_length() + 1),
+                           methodsignature->as_C_string(signaturebuffer,methodsignature->utf8_length() + 1));
+        	free(threadbuffer);
+        	free(buf_1);
+        	free(methodbuffer);
+        	free(signaturebuffer);
+        	free(namebuffer);
+        }
+    }else{
+        Method* method = current->last_frame().interpreter_frame_method();
+        Symbol* methodname = method->name();
+        Symbol* methodsignature = method->signature();
+        Symbol* methodklass = method->klass_name();
+        char* methodbuffer = (char*) malloc(sizeof(char) * methodname->utf8_length() + 1);
+        char* signaturebuffer =  (char*) malloc(sizeof(char) * methodsignature->utf8_length() + 1);
+        char* namebuffer = (char*) malloc(sizeof(char) * methodklass->utf8_length() + 1);
+        char* threadbuffer = (char*) malloc(sizeof(char) * 200);
+        log_info(gc, heap)("Return H:NULL, C:NULL, T:%s, M:%s.%s %s",
+		"test_thread",
+		//  current->get_thread_name_string(threadbuffer, 200),
+                           methodklass->as_C_string(namebuffer,methodklass->utf8_length() + 1), methodname->as_C_string(methodbuffer,methodname->utf8_length() + 1),
+                           methodsignature->as_C_string(signaturebuffer,methodsignature->utf8_length() + 1));
+        free(threadbuffer);
+        free(methodbuffer);
+        free(signaturebuffer);
+        free(namebuffer);
+    }
+
+JRT_END
+
+
+class RootAddClosure : public OopClosure {
+
+private:
+    const Method* _md;
+
+
+public:
+    int _times;
+
+    RootAddClosure(Method* md) :
+            _md(md),
+            _times(0){}
+
+    virtual void do_oop(oop* p) {
+        oop delRoot = *p;
+        if(oopDesc::is_oop(delRoot)){
+            Symbol* inter_1 = delRoot->klass()->name();
+            Symbol* method_name = _md->name();
+            Symbol* method_signature = _md->signature();
+            JavaThread* current = JavaThread::current();
+			// Symbol* thread_name = current->name();
+            Symbol* methodklass = _md->klass_name();
+            char* namebuffer = (char*) malloc(sizeof(char) * methodklass->utf8_length() + 1);
+            // char* threadbuffer = (char*) malloc(sizeof(char) * thread_name->utf8_length() + 1);
+
+            char* buf_1 = (char*) malloc(sizeof(char) * inter_1->utf8_length() + 1);
+            char* threadbuffer_1 = (char*) malloc(sizeof(char) * method_name->utf8_length() + 1);
+            char* threadbuffer_2 = (char*) malloc(sizeof(char) * method_signature->utf8_length() + 1);
+            log_info(gc, heap)("Add PR H:" INTPTR_FORMAT ", C:%s, T:%s, M:%s.%s %s", delRoot->identity_hash(),
+                               inter_1->as_C_string(buf_1, inter_1->utf8_length() + 1), 
+							   "test_thread", 
+							//    thread_name->as_C_string(threadbuffer, thread_name->utf8_length() + 1),
+                               methodklass->as_C_string(namebuffer,methodklass->utf8_length() + 1),
+                               method_name->as_C_string(threadbuffer_1, method_name->utf8_length() + 1),
+                               method_signature->as_C_string(threadbuffer_2, method_signature->utf8_length() + 1));
+            free(buf_1);
+            free(threadbuffer_1);
+            free(threadbuffer_2);
+            // free(threadbuffer);
+            free(namebuffer);
+            this->_times++;
+        }
+    }
+
+    virtual void do_oop(narrowOop* p) {
+        ShouldNotReachHere();
+    }
+
+};
+
+class InterpreterClosure : public OffsetClosure {
+private:
+    const frame* _fr;
+    OopClosure*  _f;
+    int          _max_locals;
+    int          _max_stack;
+
+public:
+    InterpreterClosure(const frame* fr, int max_locals, int max_stack,
+                            OopClosure* f) {
+        _fr         = fr;
+        _max_locals = max_locals;
+        _max_stack  = max_stack;
+        _f          = f;
+    }
+
+    void offset_do(int offset) {
+        oop* addr;
+        if (offset < _max_locals) {
+            addr = (oop*) _fr->interpreter_frame_local_at(offset);
+            assert((intptr_t*)addr >= _fr->sp(), "must be inside the frame");
+            _f->do_oop(addr);
+        }
+    }
+
+    int max_locals()  { return _max_locals; }
+};
+
+JRT_ENTRY(void, InterpreterRuntime::iterate_pr_root(JavaThread* current, int parameter_sizes))
+
+    frame iterate = current->last_frame();
+    methodHandle m (current, iterate.interpreter_frame_method());
+//    if(!m->is_initializer()){
+    jint      bci = iterate.interpreter_frame_bci();
+    RootAddClosure f(iterate.interpreter_frame_method());
+    InterpreterClosure blk(&iterate, parameter_sizes, m->max_stack(), &f);
+
+    // process locals & expression stack
+    InterpreterOopMap mask;
+    OopMapCache::compute_one_oop_map(m, bci, &mask);
+
+    mask.iterate_oop(&blk);
+    if(f._times < 1){
+        Method* method = current->last_frame().interpreter_frame_method();
+        Symbol* methodname = method->name();
+        Symbol* methodsignature = method->signature();
+        Symbol* methodklass = method->klass_name();
+		// Symbol* thread_name = current->name();
+		// char* threadbuffer = (char*) malloc(sizeof(char) * thread_name->utf8_length() + 1);
+        char* methodbuffer = (char*) malloc(sizeof(char) * methodname->utf8_length() + 1);
+        char* signaturebuffer =  (char*) malloc(sizeof(char) * methodsignature->utf8_length() + 1);
+        char* namebuffer = (char*) malloc(sizeof(char) * methodklass->utf8_length() + 1);
+        log_info(gc, heap)("Add PR H:NULL, C:NULL, T:%s, M:%s.%s %s, Locals:%d", 
+		"test_thread", 
+		// thread_name->as_C_string(threadbuffer, thread_name->utf8_length() + 1),
+                           methodklass->as_C_string(namebuffer,methodklass->utf8_length() + 1), methodname->as_C_string(methodbuffer,methodname->utf8_length() + 1),
+                           methodsignature->as_C_string(signaturebuffer,methodsignature->utf8_length() + 1), m->max_locals());
+        // free(threadbuffer);
+        free(methodbuffer);
+        free(signaturebuffer);
+        free(namebuffer);
+    }
+//    }
+
+JRT_END
 
 JRT_ENTRY(void, InterpreterRuntime::newarray(JavaThread* current, BasicType type, jint size))
   oop obj = oopFactory::new_typeArray(type, size, CHECK);

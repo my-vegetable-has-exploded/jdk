@@ -843,6 +843,13 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 #endif
   }
 
+  __ pusha();
+  // get parameter size (always needed)
+  __ movptr(rcx, constMethod);
+  __ load_unsigned_short(rcx, size_of_parameters);
+  __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::iterate_pr_root), rcx);
+  __ popa();
+
   // start execution
 #ifdef ASSERT
   {
@@ -1121,6 +1128,10 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
                        t /* tmp */);
     __ movptr(Address(rbp, frame::interpreter_frame_oop_temp_offset*wordSize), rax);
     // keep stack depth as expected by pushing oop which will eventually be discarded
+    __ pusha();
+    __ call_VM(noreg, CAST_FROM_FN_PTR(address,
+    						InterpreterRuntime::return_root), rax);
+    __ popa();
     __ push(ltos);
     __ bind(no_oop);
   }

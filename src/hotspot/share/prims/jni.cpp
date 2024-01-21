@@ -967,6 +967,10 @@ JNI_ENTRY(jobject, jni_AllocObject(JNIEnv *env, jclass clazz))
 
   instanceOop i = InstanceKlass::allocate_instance(JNIHandles::resolve_non_null(clazz), CHECK_NULL);
   ret = JNIHandles::make_local(THREAD, i);
+  JavaThread* current = JavaThread::current();
+  frame fr = current->last_frame();
+  Method* method = current->last_frame().interpreter_frame_method();
+  log_info(gc, heap) ("jni_AllocObject: %s %p %s", i->klass()->external_name(), ret, method->name_and_sig_as_C_string());
   return ret;
 JNI_END
 
@@ -2213,6 +2217,8 @@ JNI_ENTRY(jstring, jni_NewStringUTF(JNIEnv *env, const char *bytes))
 
   oop result = java_lang_String::create_oop_from_str((char*) bytes, CHECK_NULL);
   ret = (jstring) JNIHandles::make_local(THREAD, result);
+//   printf("jni_NewStringUTF: %s -> %p\n", bytes, ret);
+  log_info(gc, heap)("jni_NewStringUTF: %s ->%p", bytes, ret);
   return ret;
 JNI_END
 

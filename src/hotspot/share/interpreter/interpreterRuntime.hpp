@@ -60,6 +60,9 @@ class InterpreterRuntime: AllStatic {
 
   // Allocation
   static void    _new          (JavaThread* current, ConstantPool* pool, int index);
+
+  static void    return_root  (JavaThread* current, oopDesc* obj_root);
+  static void    iterate_pr_root  (JavaThread* current, int parameter_sizes);
   static void    newarray      (JavaThread* current, BasicType type, jint size);
   static void    anewarray     (JavaThread* current, ConstantPool* pool, int index, jint size);
   static void    multianewarray(JavaThread* current, jint* first_size_address);
