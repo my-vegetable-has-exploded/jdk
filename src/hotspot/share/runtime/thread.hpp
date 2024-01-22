@@ -1384,7 +1384,6 @@ class JavaThread: public Thread {
   void print_name_on_error(outputStream* st, char* buf, int buflen) const;
   void verify();
   const char* get_thread_name() const;
- protected:
   // factor out low-level mechanics for use in both normal and error cases
   virtual const char* get_thread_name_string(char* buf = NULL, int buflen = 0) const;
  public:

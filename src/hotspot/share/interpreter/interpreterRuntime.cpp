@@ -260,8 +260,7 @@ JRT_ENTRY(void, InterpreterRuntime::return_root  (JavaThread* current, oopDesc* 
         	char* threadbuffer = (char*) malloc(sizeof(char) * 200);
         	log_info(gc, heap)("Return H:" INTPTR_FORMAT ", C:%s, T:%s, M:%s.%s %s", obj_root->identity_hash(),
                                obj_root->klass()->name()->as_C_string(buf_1, inter_1->utf8_length() + 1),
-								"test_thread",
-							    // current->get_thread_name_string(threadbuffer, 200),
+						   current->get_thread_name_string(threadbuffer, 200),
                            methodklass->as_C_string(namebuffer,methodklass->utf8_length() + 1), methodname->as_C_string(methodbuffer,methodname->utf8_length() + 1),
                            methodsignature->as_C_string(signaturebuffer,methodsignature->utf8_length() + 1));
         	free(threadbuffer);
@@ -280,8 +279,7 @@ JRT_ENTRY(void, InterpreterRuntime::return_root  (JavaThread* current, oopDesc* 
         char* namebuffer = (char*) malloc(sizeof(char) * methodklass->utf8_length() + 1);
         char* threadbuffer = (char*) malloc(sizeof(char) * 200);
         log_info(gc, heap)("Return H:NULL, C:NULL, T:%s, M:%s.%s %s",
-		"test_thread",
-		//  current->get_thread_name_string(threadbuffer, 200),
+		                   current->get_thread_name_string(threadbuffer, 200),
                            methodklass->as_C_string(namebuffer,methodklass->utf8_length() + 1), methodname->as_C_string(methodbuffer,methodname->utf8_length() + 1),
                            methodsignature->as_C_string(signaturebuffer,methodsignature->utf8_length() + 1));
         free(threadbuffer);
@@ -313,25 +311,23 @@ public:
             Symbol* method_name = _md->name();
             Symbol* method_signature = _md->signature();
             JavaThread* current = JavaThread::current();
-			// Symbol* thread_name = current->name();
             Symbol* methodklass = _md->klass_name();
             char* namebuffer = (char*) malloc(sizeof(char) * methodklass->utf8_length() + 1);
-            // char* threadbuffer = (char*) malloc(sizeof(char) * thread_name->utf8_length() + 1);
+            char* threadbuffer = (char*) malloc(sizeof(char) * 200);
 
             char* buf_1 = (char*) malloc(sizeof(char) * inter_1->utf8_length() + 1);
             char* threadbuffer_1 = (char*) malloc(sizeof(char) * method_name->utf8_length() + 1);
             char* threadbuffer_2 = (char*) malloc(sizeof(char) * method_signature->utf8_length() + 1);
             log_info(gc, heap)("Add PR H:" INTPTR_FORMAT ", C:%s, T:%s, M:%s.%s %s", delRoot->identity_hash(),
                                inter_1->as_C_string(buf_1, inter_1->utf8_length() + 1), 
-							   "test_thread", 
-							//    thread_name->as_C_string(threadbuffer, thread_name->utf8_length() + 1),
+							   current->get_thread_name_string(threadbuffer, 200),
                                methodklass->as_C_string(namebuffer,methodklass->utf8_length() + 1),
                                method_name->as_C_string(threadbuffer_1, method_name->utf8_length() + 1),
                                method_signature->as_C_string(threadbuffer_2, method_signature->utf8_length() + 1));
             free(buf_1);
             free(threadbuffer_1);
             free(threadbuffer_2);
-            // free(threadbuffer);
+            free(threadbuffer);
             free(namebuffer);
             this->_times++;
         }
@@ -372,7 +368,6 @@ public:
 };
 
 JRT_ENTRY(void, InterpreterRuntime::iterate_pr_root(JavaThread* current, int parameter_sizes))
-
     frame iterate = current->last_frame();
     methodHandle m (current, iterate.interpreter_frame_method());
 //    if(!m->is_initializer()){
@@ -390,17 +385,14 @@ JRT_ENTRY(void, InterpreterRuntime::iterate_pr_root(JavaThread* current, int par
         Symbol* methodname = method->name();
         Symbol* methodsignature = method->signature();
         Symbol* methodklass = method->klass_name();
-		// Symbol* thread_name = current->name();
-		// char* threadbuffer = (char*) malloc(sizeof(char) * thread_name->utf8_length() + 1);
+		char* threadbuffer = (char*) malloc(sizeof(char) * 200);
         char* methodbuffer = (char*) malloc(sizeof(char) * methodname->utf8_length() + 1);
         char* signaturebuffer =  (char*) malloc(sizeof(char) * methodsignature->utf8_length() + 1);
         char* namebuffer = (char*) malloc(sizeof(char) * methodklass->utf8_length() + 1);
         log_info(gc, heap)("Add PR H:NULL, C:NULL, T:%s, M:%s.%s %s, Locals:%d", 
-		"test_thread", 
-		// thread_name->as_C_string(threadbuffer, thread_name->utf8_length() + 1),
+						   current->get_thread_name_string(threadbuffer, 200),
                            methodklass->as_C_string(namebuffer,methodklass->utf8_length() + 1), methodname->as_C_string(methodbuffer,methodname->utf8_length() + 1),
                            methodsignature->as_C_string(signaturebuffer,methodsignature->utf8_length() + 1), m->max_locals());
-        // free(threadbuffer);
         free(methodbuffer);
         free(signaturebuffer);
         free(namebuffer);
