@@ -969,8 +969,28 @@ JNI_ENTRY(jobject, jni_AllocObject(JNIEnv *env, jclass clazz))
   ret = JNIHandles::make_local(THREAD, i);
   JavaThread* current = JavaThread::current();
   frame fr = current->last_frame();
-  Method* method = current->last_frame().interpreter_frame_method();
-  log_info(gc, heap) ("jni_AllocObject: %s %p %s", i->klass()->external_name(), ret, method->name_and_sig_as_C_string());
+  if(fr.is_interpreted_frame()) {
+    Method* method = current->last_frame().interpreter_frame_method();
+	Symbol* class_symbol = i->klass()->name();
+	int class_name_len = class_symbol->utf8_length();
+	char* class_name_buff = (char*) malloc(sizeof(char) * class_name_len+1);
+	Symbol* methodname = method->name();
+    Symbol* methodsignature = method->signature();
+    Symbol* methodklass = method->klass_name();
+	char* threadbuffer = (char*) malloc(sizeof(char) * 200);
+    char* methodbuffer = (char*) malloc(sizeof(char) * methodname->utf8_length() + 1);
+    char* signaturebuffer =  (char*) malloc(sizeof(char) * methodsignature->utf8_length() + 1);
+    char* namebuffer = (char*) malloc(sizeof(char) * methodklass->utf8_length() + 1);
+    log_info(gc, heap)("New H:" INTPTR_FORMAT ", S:%d, C:%s, T:%s, M:%s.%s %s",
+            i->identity_hash(), i->size(), class_symbol->as_C_string(class_name_buff, class_name_len+1),
+            current->get_thread_name_string(threadbuffer, 200),
+            methodklass->as_C_string(namebuffer,methodklass->utf8_length() + 1), methodname->as_C_string(methodbuffer,methodname->utf8_length() + 1),methodsignature->as_C_string(signaturebuffer,methodsignature->utf8_length() + 1));
+	free(namebuffer);
+    free(class_name_buff);
+	free(methodbuffer);
+	free(signaturebuffer);
+	free(threadbuffer);	
+  }
   return ret;
 JNI_END
 
@@ -984,6 +1004,14 @@ JNI_ENTRY(jobject, jni_NewObjectA(JNIEnv *env, jclass clazz, jmethodID methodID,
   DT_RETURN_MARK(NewObjectA, jobject, (const jobject)obj);
 
   instanceOop i = InstanceKlass::allocate_instance(JNIHandles::resolve_non_null(clazz), CHECK_NULL);
+//   JavaThread* current = JavaThread::current();
+//   frame fr = current->last_frame();
+//   Method* method = current->last_frame().interpreter_frame_method();
+//   log_info(gc, heap)("New H:" INTPTR_FORMAT ", S:%d, C:%s, T:%s, M:%s.%s %s",
+//           i->identity_hash(), i->size(), i->klass()->name()->as_C_string(),
+//           current->get_thread_name_string(),
+//           method->klass_name()->as_C_string(), method->name()->as_C_string(),
+//           method->signature()->as_C_string());
   obj = JNIHandles::make_local(THREAD, i);
   JavaValue jvalue(T_VOID);
   JNI_ArgumentPusherArray ap(methodID, args);
@@ -1002,6 +1030,14 @@ JNI_ENTRY(jobject, jni_NewObjectV(JNIEnv *env, jclass clazz, jmethodID methodID,
   DT_RETURN_MARK(NewObjectV, jobject, (const jobject&)obj);
 
   instanceOop i = InstanceKlass::allocate_instance(JNIHandles::resolve_non_null(clazz), CHECK_NULL);
+//   JavaThread* current = JavaThread::current();
+//   frame fr = current->last_frame();
+//   Method* method = current->last_frame().interpreter_frame_method();
+//   log_info(gc, heap)("New H:" INTPTR_FORMAT ", S:%d, C:%s, T:%s, M:%s.%s %s",
+//           i->identity_hash(), i->size(), i->klass()->name()->as_C_string(),
+//           current->get_thread_name_string(),
+//           method->klass_name()->as_C_string(), method->name()->as_C_string(),
+//           method->signature()->as_C_string());
   obj = JNIHandles::make_local(THREAD, i);
   JavaValue jvalue(T_VOID);
   JNI_ArgumentPusherVaArg ap(methodID, args);
@@ -1877,8 +1913,47 @@ address jni_GetDoubleField_addr() {
 JNI_ENTRY_NO_PRESERVE(void, jni_SetObjectField(JNIEnv *env, jobject obj, jfieldID fieldID, jobject value))
   HOTSPOT_JNI_SETOBJECTFIELD_ENTRY(env, obj, (uintptr_t) fieldID, value);
   oop o = JNIHandles::resolve_non_null(obj);
+  oop ot = JNIHandles::resolve(value);
   Klass* k = o->klass();
   int offset = jfieldIDWorkaround::from_instance_jfieldID(k, fieldID);
+  fieldDescriptor fd;
+  if (!k->is_instance_klass() ||
+      !InstanceKlass::cast(k)->find_field_from_offset(offset, false, &fd)) {
+	  log_info(gc, heap)("fail to get field from offset");
+  }
+  JavaThread* current = JavaThread::current();
+  frame fr = current->last_frame();
+  if(fr.is_interpreted_frame()) {
+    Method* method = current->last_frame().interpreter_frame_method();
+	Symbol* class_symbol = k->name();
+	int class_name_len = class_symbol->utf8_length();
+	char* class_name_buff = (char*) malloc(sizeof(char) * class_name_len+1);
+	Symbol* methodname = method->name();
+    Symbol* methodsignature = method->signature();
+    Symbol* methodklass = method->klass_name();
+	char* threadbuffer = (char*) malloc(sizeof(char) * 200);
+    char* methodbuffer = (char*) malloc(sizeof(char) * methodname->utf8_length() + 1);
+    char* signaturebuffer =  (char*) malloc(sizeof(char) * methodsignature->utf8_length() + 1);
+    char* namebuffer = (char*) malloc(sizeof(char) * methodklass->utf8_length() + 1);
+	Symbol* ot_symbol = ot->klass()->name();
+	int ot_name_len = ot_symbol->utf8_length();
+	char* ot_name_buff = (char*) malloc(sizeof(char) * ot_name_len+1);
+	Symbol* field_name = fd.name();
+	int field_name_len = field_name->utf8_length();
+	char* field_name_buff = (char*) malloc(sizeof(char) * field_name_len+1);
+  	log_info(gc, heap)("Put H1:" INTPTR_FORMAT ", C1:%s, IS:%s, H2:" INTPTR_FORMAT ", C2:%s, F:%s, T:%s, M:%s.%s %s", o->identity_hash(),
+					  class_symbol->as_C_string(class_name_buff, class_name_len+1), "false", ot->identity_hash(), ot_symbol->as_C_string(ot_name_buff, ot_name_len+1),
+					  field_name->as_C_string(field_name_buff, field_name_len+1), 
+            		  current->get_thread_name_string(threadbuffer, 200),
+            		  methodklass->as_C_string(namebuffer,methodklass->utf8_length() + 1), methodname->as_C_string(methodbuffer,methodname->utf8_length() + 1),methodsignature->as_C_string(signaturebuffer,methodsignature->utf8_length() + 1));
+    free(class_name_buff);
+	free(methodbuffer);
+	free(signaturebuffer);
+	free(namebuffer);
+	free(threadbuffer);
+	free(ot_name_buff);
+	free(field_name_buff);
+  }
   // Keep JVMTI addition small and only check enabled flag here.
   if (JvmtiExport::should_post_field_modification()) {
     jvalue field_value;
@@ -2079,6 +2154,46 @@ JNI_ENTRY(void, jni_SetStaticObjectField(JNIEnv *env, jclass clazz, jfieldID fie
     JvmtiExport::jni_SetField_probe(thread, NULL, NULL, id->holder(), fieldID, true, JVM_SIGNATURE_CLASS, (jvalue *)&field_value);
   }
   id->holder()->java_mirror()->obj_field_put(id->offset(), JNIHandles::resolve(value));
+  oop ot = JNIHandles::resolve(value);
+  fieldDescriptor fd;
+  Klass* k = java_lang_Class::as_Klass(JNIHandles::resolve_non_null(clazz));
+  if (!k->is_instance_klass() ||
+      !InstanceKlass::cast(k)->find_field_from_offset(id->offset(), true, &fd)) {
+	  log_info(gc, heap)("fail to get field from offset");
+  }
+  JavaThread* current = JavaThread::current();
+  frame fr = current->last_frame();
+  if(fr.is_interpreted_frame()) {
+    Method* method = current->last_frame().interpreter_frame_method();
+	Symbol* class_symbol = k->name();
+	int class_name_len = class_symbol->utf8_length();
+	char* class_name_buff = (char*) malloc(sizeof(char) * class_name_len+1);
+	Symbol* methodname = method->name();
+    Symbol* methodsignature = method->signature();
+    Symbol* methodklass = method->klass_name();
+	char* threadbuffer = (char*) malloc(sizeof(char) * 200);
+    char* methodbuffer = (char*) malloc(sizeof(char) * methodname->utf8_length() + 1);
+    char* signaturebuffer =  (char*) malloc(sizeof(char) * methodsignature->utf8_length() + 1);
+    char* namebuffer = (char*) malloc(sizeof(char) * methodklass->utf8_length() + 1);
+	Symbol* ot_symbol = ot->klass()->name();
+	int ot_name_len = ot_symbol->utf8_length();
+	char* ot_name_buff = (char*) malloc(sizeof(char) * ot_name_len+1);
+	Symbol* field_name = fd.name();
+	int field_name_len = field_name->utf8_length();
+	char* field_name_buff = (char*) malloc(sizeof(char) * field_name_len+1);
+  	log_info(gc, heap)("Put H1:NULL, C1:%s, IS:%s, H2:" INTPTR_FORMAT ", C2:%s, F:%s, T:%s, M:%s.%s %s",
+					  class_symbol->as_C_string(class_name_buff, class_name_len+1), "true", ot->identity_hash(), ot_symbol->as_C_string(ot_name_buff, ot_name_len+1),
+					  field_name->as_C_string(field_name_buff, field_name_len+1), 
+            		  current->get_thread_name_string(threadbuffer, 200),
+            		  methodklass->as_C_string(namebuffer,methodklass->utf8_length() + 1), methodname->as_C_string(methodbuffer,methodname->utf8_length() + 1),methodsignature->as_C_string(signaturebuffer,methodsignature->utf8_length() + 1));
+    free(class_name_buff);
+	free(methodbuffer);
+	free(signaturebuffer);
+	free(namebuffer);
+	free(threadbuffer);
+	free(ot_name_buff);
+	free(field_name_buff);
+  }
   HOTSPOT_JNI_SETSTATICOBJECTFIELD_RETURN();
 JNI_END
 
